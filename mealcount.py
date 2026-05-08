@@ -3,10 +3,15 @@ import pandas as pd
 import datetime
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
+import json # json 라이브러리 추가 필수!
 
 # --- 구글 시트 연동 설정 ---
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-creds = "mealcount.json"
+
+# (수정된 부분) Streamlit Secrets에서 데이터를 가져와 딕셔너리로 변환
+key_dict = json.loads(st.secrets["gcp_service_account"])
+creds = ServiceAccountCredentials.from_json_keyfile_dict(key_dict, scope)
+
 client = gspread.authorize(creds)
 doc = client.open("HAAC 현장 식수 집계")
 
