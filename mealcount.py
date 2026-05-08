@@ -23,7 +23,7 @@ col1, col2 = st.columns(2)
 with col1:
     target_date = st.date_input("식사 일자 선택", datetime.date.today())
 with col2:
-    team_list = ['R/U', 'QM', '기계', 'PAC', '전장', '전장(자재), '냉각기', '두산', '자재', '수소파트', 'AS']
+    team_list = ['R/U', 'QM', '기계', 'PAC', '전장', '전장(자재)', '냉각기', '두산', '자재', '수소파트', 'AS']
     selected_team = st.selectbox("소속팀 선택", team_list)
 
 # 마감 시간 체크 로직 (중식: 당일 09시, 석식: 3일전 14시)
