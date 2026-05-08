@@ -10,11 +10,11 @@ scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/au
 
 # Streamlit Secrets에서 보안 키 불러오기
 try:
-key_dict = json.loads(st.secrets["gcp_service_account"])
-creds = ServiceAccountCredentials.from_json_keyfile_dict(key_dict, scope)
+    key_dict = json.loads(st.secrets["gcp_service_account"])
+    creds = ServiceAccountCredentials.from_json_keyfile_dict(key_dict, scope)
 
-client = gspread.authorize(creds)
-doc = client.open_by_key("1Je9nGeVC2aKossXKI_7uUwHOL3ZHEpDFI_ReUEoWR-c")
+    client = gspread.authorize(creds)
+    doc = client.open_by_key("1Je9nGeVC2aKossXKI_7uUwHOL3ZHEpDFI_ReUEoWR-c")
 
 except Exception as e:
     st.error(f"구글 시트 연결 오류: {e}")
