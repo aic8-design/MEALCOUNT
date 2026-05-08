@@ -13,7 +13,7 @@ key_dict = json.loads(st.secrets["gcp_service_account"])
 creds = ServiceAccountCredentials.from_json_keyfile_dict(key_dict, scope)
 
 client = gspread.authorize(creds)
-doc = client.open("HAAC 현장 식수 집계")
+doc = client.open_by_key("1Je9nGeVC2aKossXKI_7uUwHOL3ZHEpDFI_ReUEoWR-c")
 
 # --- UI 및 로직 ---
 st.title("🍽️ HAAC 현장 식수 신청 시스템")
