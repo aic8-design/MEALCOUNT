@@ -11,12 +11,10 @@ scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/au
 @st.cache_resource
 def get_gspread_client():
     try:
-       key_dict = json.loads(st.secrets["gcp_service_account"])
+        # Secrets에서 보안 키 불러오기
+        key_dict = json.loads(st.secrets["gcp_service_account"])
         creds = ServiceAccountCredentials.from_json_keyfile_dict(key_dict, scope)
-
-        client = gspread.authorize(creds)
-        doc = client.open_by_key("1Je9nGeVC2aKossXKI_7uUwHOL3ZHEpDFI_ReUEoWR-c")
-
+        return gspread.authorize(creds)
     except Exception as e:
         st.error(f"구글 인증 오류: {e}")
         return None
