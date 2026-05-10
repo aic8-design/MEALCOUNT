@@ -11,7 +11,6 @@ scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/au
 @st.cache_resource
 def get_gspread_client():
     try:
-        # Secrets에서 보안 키 불러오기
         key_dict = json.loads(st.secrets["gcp_service_account"])
         creds = ServiceAccountCredentials.from_json_keyfile_dict(key_dict, scope)
         return gspread.authorize(creds)
@@ -23,10 +22,11 @@ client = get_gspread_client()
 
 if client:
     try:
-        # 시트 열기 (이름이 정확해야 합니다)
-        doc = client.open("HAAC 현장 식수 집계")
+        # 제공해주신 시트 ID로 직접 엽니다.
+        spreadsheet_key = "1Je9nGeVC2aKossXKI_7uUwHOL3ZHEpDFI_ReUEoWR-c"
+        doc = client.open_by_key(spreadsheet_key)
     except Exception as e:
-        st.error(f"스프레드시트를 찾을 수 없습니다: {e}")
+        st.error(f"스프레드시트를 찾을 수 없습니다. ID와 공유 설정을 확인해주세요: {e}")
         st.stop()
 else:
     st.stop()
