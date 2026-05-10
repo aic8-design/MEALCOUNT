@@ -22,11 +22,10 @@ client = get_gspread_client()
 
 if client:
     try:
-        # 제공해주신 시트 ID로 직접 엽니다.
         spreadsheet_key = "1Je9nGeVC2aKossXKI_7uUwHOL3ZHEpDFI_ReUEoWR-c"
         doc = client.open_by_key(spreadsheet_key)
     except Exception as e:
-        st.error(f"스프레드시트를 찾을 수 없습니다. ID와 공유 설정을 확인해주세요: {e}")
+        st.error(f"스프레드시트를 찾을 수 없습니다: {e}")
         st.stop()
 else:
     st.stop()
@@ -43,13 +42,21 @@ with col2:
     team_list = ['R/U', 'QM', '기계', 'PAC', '전장', '전장(자재)', '냉각기', '두산', '자재', '수소파트', 'AS']
     selected_team = st.selectbox("소속팀 선택", team_list)
 
-# 마감 시간 체크 로직
+# --- 마감 시간 체크 로직 ---
 now = datetime.datetime.now()
-is_lunch_closed = (target_date == now.date() and now.hour >= 9) or (target_date < now.date())
-dinner_deadline = target_date - datetime.timedelta(days=3)
-is_dinner_closed = (now.date() > dinner_deadline) or (now.date() == dinner_deadline and now.hour >= 14)
 
-st.info(f"📅 선택 날짜: {target_date} | ⏰ 현재 시간: {now.strftime('%H:%M')}")
+# 중식 마감: 당일 오전 9시
+is_lunch_closed = (target_date == now.date() and now.hour >= 9) or (target_date < now.date())
+
+# 석식 마감: 3일 전 14시 (예: 8일 식사는 5일 14시에 마감)
+dinner_deadline_date = target_date - datetime.timedelta(days=3)
+is_dinner_closed = (now.date() > dinner_deadline_date) or (now.date() == dinner_deadline_date and now.hour >= 14)
+
+# 마감 안내 메시지
+if is_lunch_closed:
+    st.warning("⚠️ 중식 신청이 마감되었습니다. (당일 09:00 마감)")
+if is_dinner_closed:
+    st.warning("⚠️ 석식 신청이 마감되었습니다. (3일 전 14:00 마감)")
 
 # 2. "명단" 시트에서 데이터 불러오기
 try:
@@ -57,59 +64,73 @@ try:
     all_data = pd.DataFrame(member_sheet.get_all_records())
 except Exception as e:
     st.error(f"'명단' 시트를 불러오지 못했습니다: {e}")
-    st.info("💡 팁: 구글 시트 하단 탭 이름이 정확히 '명단'인지 확인해 주세요.")
     st.stop()
 
 if not all_data.empty:
-    # 선택된 팀원 필터링 및 정렬
+    # 해당 팀원 필터링 및 정렬
     df = all_data[all_data['소속'] == selected_team].copy()
     sort_priority = {'팀장': 1, '조장': 2, '사원': 3, '외국인': 4}
     df['priority'] = df['직책'].map(sort_priority).fillna(99)
-    df = df.sort_values('priority').drop(columns=['priority'])
+    df = df.sort_values('priority').drop(columns=['priority']).reset_index(drop=True)
     
-    # 체크박스 컬럼 추가 (날짜/팀 변경 시 초기화되도록 key 설정)
-    df['중식'] = False
-    df['석식'] = False
-
     st.write(f"### 👥 {selected_team} 명단")
+
+    # --- 전체 선택 기능 ---
+    sel_col1, sel_col2, _ = st.columns([1, 1, 4])
+    with sel_col1:
+        select_all_lunch = st.checkbox("중식 전체 선택", disabled=is_lunch_closed)
+    with sel_col2:
+        select_all_dinner = st.checkbox("석식 전체 선택", disabled=is_dinner_closed)
+
+    # 데이터프레임에 초기값 반영
+    df['중식'] = select_all_lunch
+    df['석식'] = select_all_dinner
+
+    # --- 데이터 에디터 (표) ---
+    # 날짜나 팀이 바뀌면 에디터 상태를 초기화하기 위한 key 설정
+    editor_key = f"editor_{target_date}_{selected_team}_{select_all_lunch}_{select_all_dinner}"
     
-    # 에디터 key에 날짜와 팀을 조합하여 상태 초기화 유도
-    editor_key = f"editor_{target_date}_{selected_team}"
     edited_df = st.data_editor(
         df,
         key=editor_key,
         hide_index=True,
         use_container_width=True,
-        disabled=['소속', '사번', '직책', '이름']
+        column_config={
+            "소속": st.column_config.TextColumn(disabled=True),
+            "사번": st.column_config.TextColumn(disabled=True),
+            "직책": st.column_config.TextColumn(disabled=True),
+            "이름": st.column_config.TextColumn(disabled=True),
+            "중식": st.column_config.CheckboxColumn(
+                "중식",
+                help="마감 전까지 체크 가능",
+                disabled=is_lunch_closed # 마감 시 체크 불가
+            ),
+            "석식": st.column_config.CheckboxColumn(
+                "석식",
+                help="3일 전 14:00까지 체크 가능",
+                disabled=is_dinner_closed # 마감 시 체크 불가
+            ),
+        }
     )
 
     # 3. 신청서 제출
     if st.button("🍽️ 식수 신청하기", type="primary", use_container_width=True):
-        # 체크된 인원 추출
         lunch_people = edited_df[edited_df['중식'] == True][['소속', '사번', '직책', '이름']]
         dinner_people = edited_df[edited_df['석식'] == True][['소속', '사번', '직책', '이름']]
         
-        # 신청 일자 정보 추가 (자동화 서버 집계용)
-        lunch_people.insert(0, '신청일자', str(target_date))
-        dinner_people.insert(0, '신청일자', str(target_date))
+        lunch_people.insert(0, '식사일자', str(target_date))
+        dinner_people.insert(0, '식사일자', str(target_date))
 
         try:
-            # 중식 저장
             if not is_lunch_closed and not lunch_people.empty:
                 doc.worksheet("중식").append_rows(lunch_people.values.tolist())
-                st.success(f"✅ 중식 {len(lunch_people)}명 완료")
-            elif is_lunch_closed and not lunch_people.empty:
-                st.error("❌ 중식 마감(09:00)")
-
-            # 석식 저장
+                st.success(f"✅ 중식 {len(lunch_people)}명 신청 완료")
+                
             if not is_dinner_closed and not dinner_people.empty:
                 doc.worksheet("석식").append_rows(dinner_people.values.tolist())
-                st.success(f"✅ 석식 {len(dinner_people)}명 완료")
-            elif is_dinner_closed and not dinner_people.empty:
-                st.error("❌ 석식 마감(3일전 14:00)")
+                st.success(f"✅ 석식 {len(dinner_people)}명 신청 완료")
                 
             if lunch_people.empty and dinner_people.empty:
-                st.warning("신청할 인원을 선택해 주세요.")
-
+                st.warning("선택된 인원이 없습니다.")
         except Exception as e:
-            st.error(f"시트 저장 오류: {e}")
+            st.error(f"저장 오류: {e}")
