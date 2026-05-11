@@ -4,6 +4,12 @@ import datetime
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 import json
+import pytz
+
+# --- 대한민국 시간대 설정 ---
+KST = pytz.timezone('Asia/Seoul')
+now_kst = datetime.datetime.now(KST)
+today_kst = now_kst.date()
 
 # --- 구글 시트 연동 설정 ---
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
@@ -37,20 +43,18 @@ st.title("🍽️ HAAC 현장 식수 신청 시스템")
 # 1. 날짜 및 팀 선택
 col1, col2 = st.columns(2)
 with col1:
-    target_date = st.date_input("식사 일자 선택", datetime.date.today())
+    # 기본값을 한국 오늘 날짜로 설정
+    target_date = st.date_input("식사 일자 선택", today_kst)
 with col2:
     team_list = ['R/U', 'QM', '기계', 'PAC', '전장', '전장(자재)', '냉각기', '두산', '자재', '수소파트', 'AS']
     selected_team = st.selectbox("소속팀 선택", team_list)
 
-# --- 마감 시간 체크 로직 ---
-now = datetime.datetime.now()
-
-# 중식 마감: 당일 오전 9시
-is_lunch_closed = (target_date == now.date() and now.hour >= 9) or (target_date < now.date())
-
-# 석식 마감: 3일 전 14시 (예: 8일 식사는 5일 14시에 마감)
+# 마감 시간 체크 (now_kst 사용)
+is_lunch_closed = (target_date == today_kst and now_kst.hour >= 9) or (target_date < today_kst)
 dinner_deadline_date = target_date - datetime.timedelta(days=3)
-is_dinner_closed = (now.date() > dinner_deadline_date) or (now.date() == dinner_deadline_date and now.hour >= 14)
+is_dinner_closed = (now_kst.date() > dinner_deadline_date) or (now_kst.date() == dinner_deadline_date and now_kst.hour >= 14)
+
+st.info(f"📅 선택 날짜: {target_date} | ⏰ 현재 서울 시간: {now_kst.strftime('%H:%M')}")
 
 # 마감 안내 메시지
 if is_lunch_closed:
